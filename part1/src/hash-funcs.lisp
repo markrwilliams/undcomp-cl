@@ -1,3 +1,5 @@
+(defparameter *hash-table-from-test* #'equal)
+
 (defun merge-hash-tables (h1 h2)
   (when (not (eql (hash-table-test h1) (hash-table-test h2)))
     (error "cannot merge hash tables with different tests"))
@@ -23,26 +25,19 @@
     result))
 
 
-(defun hash-literal (stream char)
-  (declare (ignore char))
-  (let ((kvs (gensym))
-        (result (gensym))
-        (key (gensym))
-        (value (gensym)))
-    `(let* ((,kvs (mapcar #'(lambda (el)
-                              (if (and (not (eq el 'quote))
-                                       (listp el))
-                                  (eval el)
-                                  el))
-                          (quote ,(read-delimited-list #\} stream))))
-            (,result (make-hash-table
-                      :test #'equal
-                      :size (length ,kvs))))
-       (loop for (,key ,value) on ,kvs while ,value
-            do (let ((,key ,key)
-                     (,value ,value))
-                 (setf (gethash ,key ,result) ,value)))
-       ,result)))
+(defun hash-from (&rest args)
+  (assert (evenp (length args)))
+  (let ((h (make-hash-table :test *hash-table-from-test*
+                            :size (floor (/ (length args) 2)))))
+    (loop for (key value) on args while value
+         do (let ((key key)
+                  (value value))
+              (setf (gethash key h) value)))
+    h))
 
-(set-macro-character #\{ #'hash-literal)
-(set-macro-character #\} (get-macro-character #\) nil))
+
+(defun print-hash (h)
+  (format nil "{~{~A~^ ~}}" (loop
+                             for key being the hash-keys of h
+                             using (hash-value value)
+                             nconc (list key value))))

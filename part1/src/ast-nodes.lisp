@@ -107,12 +107,16 @@
           (get-name node)
           (get-expression node)))
 
-(defmethod reduce-node ((node statement) env)
+
+(defmethod reduce-node ((node assign-node) env)
   (let ((expr (get-expression node)))
     (if (reduciblep expr)
         (values (new 'assign-node
+                     :name (get-name node)
                      :expression (reduce-node expr env))
                 env)
-        (values (new 'do-nothing)
-                (merge-hash-tables env
-                                   {(get-name node) (get-expression node)})))))
+        (values (new 'do-nothing-node)
+                (merge-hash-tables
+                 env
+                 (hash-from (get-name node)
+                            (get-expression node)))))))
