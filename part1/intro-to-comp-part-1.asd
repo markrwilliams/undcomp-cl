@@ -7,5 +7,6 @@
                         :components
                         ((:file "package")
                          (:file "hash-funcs")
-                         (:file "ast-nodes" :depends-on ("hash-funcs"))
-                         (:file "machine" :depends-on ("ast-nodes"))))))
+                         (:file "convenience")
+                         (:file "ast-nodes" :depends-on ("hash-funcs" "convenience"))
+                         (:file "machine" :depends-on ("ast-nodes" "convenience"))))))

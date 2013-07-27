@@ -4,33 +4,20 @@
 
 (defclass expression (ast-node) ())
 
+(defgeneric reduce-node (node env))
 
-(defmethod print-object ((n ast-node) stream)
-  (let* ((cls (class-of n))
-         (name (class-name cls))
-         (slot-names (mapcar #'sb-mop:slot-definition-name
-                             (sb-mop:class-slots cls)))
-         (slot-names-values (mapcar #'(lambda (sn)
-                                        (list sn (slot-value n sn)))
-                                    slot-names)))
-    (format stream "#<~A ~{~{~A=~A~}~^, ~}>" name slot-names-values)))
-
-(defgeneric as-string (node))
-(defgeneric reduce-node (node &optional env))
-
-(defgeneric infix-print (node)
-  (:method ((node expression))
-    (format t "~A~%" (as-string node))))
-
-
-(defclass number-node (expression)
+(defclass value-node (expression)
   ((value :initarg :value
           :initform nil
           :accessor get-value)
    (reducible :initform nil)))
 
-(defmethod as-string ((node number-node))
-  (format nil "~A" (get-value node)))
+(defmethod print-object ((node value-node) stream)
+  (format stream "~A" (get-value node)))
+
+
+(defclass number-node (value-node) ())
+
 
 (defclass binop-node (expression)
   ((left :initarg :left
@@ -40,41 +27,64 @@
           :initform nil
           :accessor get-right)
    (op :initform nil
-       :accessor get-op)))
+       :reader get-op)
+   (result-class :initform nil
+                 :reader get-result-class)))
 
-(defmethod as-string ((node binop-node))
-  (format nil "~A ~A ~A"
-          (as-string (get-left node))
+(defmethod print-object ((node binop-node) stream)
+  (format stream "~A ~A ~A"
+          (get-left node)
           (get-op node)
-          (as-string (get-right node))))
+          (get-right node)))
 
 
-(defmethod reduce-node ((node binop-node) &optional env)
+(defmethod reduce-node ((node binop-node) env)
   (let ((cls (class-of node))
         (left (get-left node))
-        (right (get-right node))
-        (op (get-op node)))
+        (right (get-right node)))
     (cond ((reduciblep left)
-         (make-instance cls
-                        :left (reduce-node left)
-                        :right right))
-        ((reduciblep right)
-         (make-instance cls
-                        :left left
-                        :right (reduce-node right)))
-        (t
-         (make-instance 'number-node
-                        :value (funcall (symbol-function op)
-                                      (get-value left)
-                                      (get-value right)))))))
+           (new cls
+                :left (reduce-node left env)
+                :right right))
+          ((reduciblep right)
+           (new cls
+                :left left
+                :right (reduce-node right env)))
+          (t
+           (new (get-result-class node)
+                :value (funcall (symbol-function
+                                 (get-op node))
+                                (get-value left)
+                                (get-value right)))))))
 
 
 (defclass add-node (binop-node)
-  ((op :initform '+)))
+  ((op :initform '+)
+   (result-class :initform 'number-node)))
 
 
 (defclass multiply-node (binop-node)
-  ((op :initform '*)))
+  ((op :initform '*)
+   (result-class :initform 'number-node)))
+
+
+(defclass boolean-node (value-node) ())
+
+
+(defclass less-than-node (binop-node)
+  ((op :initform '<)
+   (result-class :initform 'boolean-node)))
+
+
+(defclass variable-node (ast-node)
+  ((name :initarg :name
+         :reader get-name)))
+
+(defmethod print-object ((v variable-node) stream)
+  (format stream "~A" (get-name v)))
+
+(defmethod reduce-node ((v variable-node) env)
+  (gethash (get-name v) env))
 
 
 (defclass statement (ast-node) ())
@@ -92,19 +102,17 @@
                :initform nil
                :accessor get-expression)))
 
-(defmethod as-string ((node assign-node))
-  (format nil "~A = ~A"
+(defmethod print-object ((node assign-node) stream)
+  (format stream "~A = ~A"
           (get-name node)
           (get-expression node)))
 
-(defmethod reduce-node ((node statement) &optional env)
+(defmethod reduce-node ((node statement) env)
   (let ((expr (get-expression node)))
     (if (reduciblep expr)
-        (values (make-instance 'assign-node
-                               :expression (reduce-node expr env))
+        (values (new 'assign-node
+                     :expression (reduce-node expr env))
                 env)
-        (values (make-instance 'do-nothing)
+        (values (new 'do-nothing)
                 (merge-hash-tables env
-                                   (alist-to-hash
-                                    '(((get-name node) .
-                                       (get-expression node)))))))))
+                                   {(get-name node) (get-expression node)})))))
