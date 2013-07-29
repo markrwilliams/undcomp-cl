@@ -54,8 +54,8 @@
                                   :right (new 'number-node :value 4))))
              (new 'machine
                   :node (new 'add-node
-                          :left (new 'variable-node :name 'x)
-                          :right (new 'variable-node :name 'y))
+                             :left (new 'variable-node :name 'x)
+                             :right (new 'variable-node :name 'y))
                   :env (hash-from 'x (new 'number-node :value 3)
                                   'y (new 'number-node :value 4)))
              (new 'statement-machine

@@ -6,10 +6,11 @@
 
 (defgeneric reduce-node (node env))
 
+
 (defclass value-node (expression)
   ((value :initarg :value
           :initform nil
-          :accessor get-value)
+          :reader get-value)
    (reducible :initform nil)))
 
 (defmethod print-object ((node value-node) stream)
@@ -22,10 +23,10 @@
 (defclass binop-node (expression)
   ((left :initarg :left
          :initform nil
-         :accessor get-left)
+         :reader get-left)
    (right :initarg :right
           :initform nil
-          :accessor get-right)
+          :reader get-right)
    (op :initform nil
        :reader get-op)
    (result-class :initform nil
@@ -36,7 +37,6 @@
           (get-left node)
           (get-op node)
           (get-right node)))
-
 
 (defmethod reduce-node ((node binop-node) env)
   (let ((cls (class-of node))
@@ -52,8 +52,7 @@
                 :right (reduce-node right env)))
           (t
            (new (get-result-class node)
-                :value (funcall (symbol-function
-                                 (get-op node))
+                :value (funcall (symbol-function (get-op node))
                                 (get-value left)
                                 (get-value right)))))))
 
@@ -97,10 +96,10 @@
 (defclass assign-node (statement)
   ((name :initarg :name
          :initform nil
-         :accessor get-name)
+         :reader get-name)
    (expression :initarg :expression
                :initform nil
-               :accessor get-expression)))
+               :reader get-expression)))
 
 (defmethod print-object ((node assign-node) stream)
   (format stream "~A = ~A"
@@ -120,3 +119,7 @@
                  env
                  (hash-from (get-name node)
                             (get-expression node)))))))
+
+
+(defclass sequence (statement)
+  ((first :initform :first
